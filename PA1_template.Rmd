@@ -1,0 +1,137 @@
+---
+title: "PA1_template.Rmd"
+author: "owilks"
+date: "March 30, 2016"
+output: html_document
+
+---
+
+## Retrieving the Data
+
+First step was to retrieve the data from the coursepage at: <https://www.coursera.org/learn/reproducible-research/peer/gYyPt/course-project-1> and then download and store the data into a table using the following code.
+
+```{r echo=TRUE}
+library(chron)
+download.file("http://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip","c5_a1.zip")
+unzip("c5_a1.zip")
+
+data <- read.csv("activity.csv")
+
+```
+
+##What is the mean total number of steps taken per day
+
+*1. Calculate the total number of steps taken per day*
+
+To do this we use the aggregate function to collapse the data based on a function and a variable. Similar to the "GROUP BY" function in SQL. Applying sum on the entire list based on steps and grouped by date.
+
+```{r echo=TRUE}
+his1 <- aggregate(data$steps, by=list(date=data$date), FUN=sum, na.rm=TRUE)
+```
+
+*2. Make a histogram of the total number of steps taken each day*
+
+```{r echo=TRUE}
+hist(his1$x)
+```
+
+*3. Calculate and report the mean and median of the total number of steps taken per day*
+
+The mean number of steps taken per day is `r signif(mean(his1$x),4) `
+
+The median number of steps taken per day is `r signif(median(his1$x),4)`
+
+##What is the average daily activity pattern?
+
+*1. Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)*
+
+Using the same strategy as before, the aggregation was done instead on the "interval" column and the "steps" column.
+
+The function used instead of "sum" this time was "mean" to effectively calculate the requested mean.
+
+```{r echo=TRUE}
+ts1 <- aggregate(data$steps, by=list(interval=data$interval), FUN=mean, na.rm=TRUE)
+
+#Instead of using the ts function we directly use the plot function since the
+#given list has the x and y values and the instructions indicated the "l" type
+
+plot(ts1$interval,ts1$x,type="l")
+```
+
+*2. Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?*
+
+The first step was finding out which point in the list had the maximum value for steps, which
+was accomplished using the **which.max** function to get a value of `r which.max(ts1$x)`.
+
+The 5-min interval with the maximum number of steps was **ts1$interval[104]** or `r ts1$interval[104]`
+
+##Inputing missing values
+
+*1. Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)*
+
+Using the **is.na** function we converted our "data" data frame into a data frame of True/False values, values that could be summed to count the number of NA rows.This can also be done by counting the NA values in the individual columns.
+
+```{r echo=TRUE}
+tf = is.na(data)
+na_steps <- sum(is.na(data$steps))
+na_interval <- sum(is.na(data$interval))
+na_date <- sum(is.na(data$date))
+```
+
+The total number of NA values  are `r na_steps` , `r na_interval` and `r na_date` respective to their order in the code so NA values are only found in the steps column.
+
+*2. Devise a strategy for filling in all of the missing values in the dataset. *
+*3. Create a new dataset that is equal to the original dataset but w/o missing data. *
+
+Replacing the NA values with the medians for all the days is sufficient to update the data set.
+
+```{r echo=TRUE}
+data_fix <- data
+data_fix$steps[is.na(data_fix$steps)] <- mean(data_fix$steps, na.rm = TRUE)
+```
+
+*4. Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day.*
+
+```{r echo=TRUE}
+his2 <- aggregate(data_fix$steps, by=list(date=data_fix$date), FUN=sum, na.rm=TRUE)
+hist(his2$x)
+```
+
+The new mean number of steps taken per day is `r signif(mean(his2$x),4) `
+
+The new median number of steps taken per day is `r signif(median(his2$x),4)`
+
+The NA values going toward the mean skews the entire data set towards the center, as visible in the differences between the histograms.
+
+##Are there differences in activity patterns between weekdays and weekends?
+
+*1. Create a new factor variable in the dataset with two levels - "weekday" and "weekend" indicating whether a given date is a weekday or weekend day*
+
+First step was calculating whether or not the day was on the weekend using the **"is.weekend"** function and storing that in a new variable using the **ifelse** function.
+
+```{r echo=TRUE}
+data_fix$wknd <- ifelse(is.weekend(as.Date(data_fix$date)),"weekend","weekday")
+data2 <-data_fix
+
+```
+
+Then we create ts_day and ts_end to create the underlying data framework for creating the time series plots.
+
+To use the factors accordingly will be using the **subset** function to isolate all the weekday data versus all the weekend data for the respective newly created data.frames.
+
+```{r echo=TRUE}
+
+ts_day <- aggregate(data2$steps, by=list(interval=data2$interval), FUN=mean, data = subset(data2,data2$wknd=="weekday"), na.rm=TRUE)
+
+#That additional argument effectively subsets the data based on the wknd values
+
+ts_end <- aggregate(data2$steps, by=list(interval=data2$interval), FUN=mean, data = subset(data2,data2$wknd=="weekend"), na.rm=TRUE)
+```
+
+*2. Make a panel plot containing a time series plot (i.e. type = "l")*
+
+Using the **par** function we can create plots much like the previous box plots but allow them to be combined.
+```{r echo=TRUE}
+par(mfrow=c(2,1))
+plot(ts_day$interval,ts_day$x,type="l")
+plot(ts_end$interval,ts_end$x,type="l")
